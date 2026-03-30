@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪐 星球点击器</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  background: #000;
+  overflow: hidden;
+  height: 100vh;
+  cursor: crosshair;
+}
+.universe {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+canvas#stars-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+.ui {
+  position: fixed;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  text-align: center;
+  font-family: 'Orbitron', monospace;
+}
+.score-box {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  padding: 12px 36px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.score-label {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,0.4);
+}
+.score-num {
+  font-size: 42px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(255,255,255,0.5);
+  transition: transform 0.1s;
+}
+.score-num.pop {
+  transform: scale(1.3);
+}
+.hint {
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,0.25);
+  animation: blink 2.5s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+#planets-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+.planet {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  animation: planet-birth 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+             planet-drift linear forwards;
+  box-shadow: inset -6px -6px 12px rgba(0,0,0,0.4),
+              inset 3px 3px 8px rgba(255,255,255,0.25);
+}
+@keyframes planet-birth {
+  from { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+@keyframes planet-drift {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotateX(70deg);
+  pointer-events: none;
+}
+.burst {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: burst-out 0.5s ease-out forwards;
+  pointer-events: none;
+  z-index: 20;
+}
+@keyframes burst-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to   { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+}
+</style>
+</head>
+<body>
+<div class="universe">
+  <canvas id="stars-bg"></canvas>
+  <div class="ui">
+    <div class="score-box">
+      <span class="score-label">PLANETS</span>
+      <span class="score-num" id="score">0</span>
+    </div>
+    <div class="hint">✦ click anywhere ✦</div>
+  </div>
+  <div id="planets-container"></div>
+</div>
+<script>
+const container = document.getElementById('planets-container');
+const scoreEl = document.getElementById('score');
+const canvas = document.getElementById('stars-bg');
+const ctx = canvas.getContext('2d');
+
+let score = 0;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  drawStars();
+}
+function drawStars() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < 200; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const r = Math.random() * 1.2;
+    const a = Math.random() * 0.8 + 0.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${a})`;
+    ctx.fill();
+  }
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const themes = [
+  { bg: 'radial-gradient(circle at 35% 35%, #ff9a8b, #c0392b)', ring: '#e74c3c' },
+  { bg: 'radial-gradient(circle at 35% 35%, #a8edea, #2980b9)', ring: '#3498db' },
+  { bg: 'radial-gradient(circle at 35% 35%, #ffecd2, #f39c12)', ring: '#e67e22' },
+  { bg: 'radial-gradient(circle at 35% 35%, #d4a1ff, #8e44ad)', ring: '#9b59b6' },
+  { bg: 'radial-gradient(circle at 35% 35%, #a8ff78, #27ae60)', ring: '#2ecc71' },
+  { bg: 'radial-gradient(circle at 35% 35%, #ffd6e7, #e91e8c)', ring: '#ff69b4' },
+  { bg: 'radial-gradient(circle at 35% 35%, #fffbd5, #f1c40f)', ring: '#f9ca24' },
+  { bg: 'radial-gradient(circle at 35% 35%, #c9ffbf, #11998e)', ring: '#1abc9c' },
+];
+
+function spawnBurst(x, y, color) {
+  for (let i = 0; i < 10; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'burst';
+    const angle = (Math.PI * 2 / 10) * i;
+    const dist = 30 + Math.random() * 50;
+    dot.style.left = x + 'px';
+    dot.style.top = y + 'px';
+    dot.style.background = color;
+    dot.style.setProperty('--tx', `${Math.cos(angle) * dist - 3}px`);
+    dot.style.setProperty('--ty', `${Math.sin(angle) * dist - 3}px`);
+    container.appendChild(dot);
+    setTimeout(() => dot.remove(), 500);
+  }
+}
+
+function spawnPlanet(x, y) {
+  const theme = themes[Math.floor(Math.random() * themes.length)];
+  const size = 30 + Math.random() * 60;
+  const hasRing = Math.random() > 0.5;
+  const driftX = (Math.random() - 0.5) * 200;
+  const driftY = -80 - Math.random() * 120;
+  const duration = 2000 + Math.random() * 1500;
+
+  const planet = document.createElement('div');
+  planet.className = 'planet';
+  planet.style.left = x + 'px';
+  planet.style.top = y + 'px';
+  planet.style.width = size + 'px';
+  planet.style.height = size + 'px';
+  planet.style.background = theme.bg;
+  planet.style.animationDuration = `0.4s, ${duration}ms`;
+
+  if (hasRing) {
+    const ring = document.createElement('div');
+    ring.className = 'ring';
+    ring.style.width = size * 1.7 + 'px';
+    ring.style.height = size * 0.45 + 'px';
+    ring.style.borderColor = theme.ring + '88';
+    planet.appendChild(ring);
+  }
+
+  container.appendChild(planet);
+
+  const start = performance.now();
+  const startX = x, startY = y;
+  function animate(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - t, 2);
+    planet.style.left = (startX + driftX * ease) + 'px';
+    planet.style.top = (startY + driftY * ease) + 'px';
+    if (t < 1) requestAnimationFrame(animate);
+    else planet.remove();
+  }
+  requestAnimationFrame(animate);
+
+  spawnBurst(x, y, theme.ring);
+}
+
+document.addEventListener('click', (e) => {
+  spawnPlanet(e.clientX, e.clientY);
+  score++;
+  scoreEl.textContent = score;
+  scoreEl.classList.remove('pop');
+  void scoreEl.offsetWidth;
+  scoreEl.classList.add('pop');
+  setTimeout(() => scoreEl.classList.remove('pop'), 150);
+});
+</script>
+</body>
+</html>
